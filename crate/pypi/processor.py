@@ -20,8 +20,7 @@ from crate.web.history.models import Event
 from crate.web.packages.models import Package, Release, TroveClassifier
 from crate.web.packages.models import ReleaseRequire, ReleaseProvide, ReleaseObsolete, ReleaseURI, ReleaseFile
 from crate.pypi.exceptions import PackageHashMismatch
-from crate.pypi.models import PyPIMirrorPage, PyPIServerSigPage
-from crate.pypi.utils.serversigs import load_key, verify
+from crate.pypi.models import PyPIMirrorPage
 
 logger = logging.getLogger(__name__)
 
@@ -494,21 +493,6 @@ class PyPIPackage(object):
             return {"has_sig": False}
 
         try:
-            # Download the "serversig" page from PyPI for this package
-            serversig = requests.get(urlparse.urljoin(SERVERSIG_URL, urllib.quote(self.name.encode("utf-8"))), prefetch=True)
-            serversig.raise_for_status()
-        except requests.HTTPError:
-            if serversig.status_code == 404:
-                return {"has_sig": False}
-            raise
-
-        try:
-            if not verify(key, simple.content, serversig.content):
-                pass  # raise Exception("Simple API page does not match serversig")  # @@@ This Should be Custom Exception
-        except (UnicodeDecodeError, UnicodeEncodeError, ValueError, AssertionError):
-            logger.exception("Exception trying to verify %s" % self.name)  # @@@ Figure out a better way to handle this
-
-        try:
             package = Package.objects.get(normalized_name=re.sub('[^A-Za-z0-9.]+', '-', self.name).lower())
         except Package.DoesNotExist:
             logger.exception("Error Trying To Verify %s (Querying Package)" % self.name)
@@ -519,12 +503,8 @@ class PyPIPackage(object):
             simple_mirror.content = simple.content
             simple_mirror.save()
 
-        serversig_mirror, c = PyPIServerSigPage.objects.get_or_create(package=package, defaults={"content": serversig.content.encode("base64")})
-        serversig_mirror.content = base64.b64encode(serversig.content)
-        serversig_mirror.save()
 
         return {
             "simple": simple.content,
-            "serversig": serversig.content,
-            "has_sig": True,
+            "has_sig": False,
         }
