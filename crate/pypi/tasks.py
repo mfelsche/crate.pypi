@@ -25,9 +25,6 @@ logger = logging.getLogger(__name__)
 
 INDEX_URL = "http://pypi.python.org/pypi"
 
-SERVERKEY_URL = "http://pypi.python.org/serverkey"
-SERVERKEY_KEY = "crate:pypi:serverkey"
-
 CLASSIFIER_URL = "http://pypi.python.org/pypi?%3Aaction=list_classifiers"
 
 PYPI_SINCE_KEY = "crate:pypi:since"
@@ -81,19 +78,6 @@ def synchronize(since=None):
         current = time.mktime(datetime.datetime.utcnow().timetuple())
 
         pypi = xmlrpclib.ServerProxy(INDEX_URL)
-
-        headers = datastore.hgetall(SERVERKEY_KEY + ":headers")
-        sig = requests.get(SERVERKEY_URL, headers=headers, prefetch=True)
-
-        if not sig.status_code == 304:
-            sig.raise_for_status()
-
-            if sig.content != datastore.get(SERVERKEY_KEY):
-                logger.error("Key Rollover Detected")
-                pypi_key_rollover.delay()
-                datastore.set(SERVERKEY_KEY, sig.content)
-
-        datastore.hmset(SERVERKEY_KEY + ":headers", {"If-Modified-Since": sig.headers["Last-Modified"]})
 
         if since is None:  # @@@ Should we do this for more than just initial?
             bulk_synchronize.delay()
@@ -180,25 +164,6 @@ def update_download_counts(package_name, version, files, index=None):
                             PyPIDownloadChange.objects.create(file=releasefile, change=change)
     except socket.error:
         logger.exception("[DOWNLOAD SYNC] Network Error")
-
-
-@task
-def pypi_key_rollover():
-    datastore = redis.StrictRedis(**dict([(x.lower(), y) for x, y in settings.REDIS[settings.PYPI_DATASTORE].items()]))
-
-    sig = requests.get(SERVERKEY_URL, prefetch=True)
-    sig.raise_for_status()
-
-    datastore.set(SERVERKEY_KEY, sig.content)
-
-    for package in Package.objects.all():
-        fetch_server_key.delay(package.name)
-
-
-@task
-def fetch_server_key(package):
-    p = PyPIPackage(package)
-    p.verify_and_sync_pages()
 
 
 @task

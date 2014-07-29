@@ -27,10 +27,6 @@ logger = logging.getLogger(__name__)
 
 INDEX_URL = "http://pypi.python.org/pypi"
 SIMPLE_URL = "http://pypi.python.org/simple/"
-SERVERSIG_URL = "http://pypi.python.org/serversig/"
-SERVERKEY_URL = "http://pypi.python.org/serverkey"
-
-SERVERKEY_KEY = "crate:pypi:serverkey"
 
 _disutils2_version_capture = re.compile("^(.*?)(?:\(([^()]+)\))?$")
 _md5_re = re.compile(r"(https?://pypi\.python\.org/packages/.+)#md5=([a-f0-9]+)")
@@ -485,13 +481,6 @@ class PyPIPackage(object):
 
     def verify_and_sync_pages(self):
         # Get the Server Key for PyPI
-        if self.datastore.get(SERVERKEY_KEY):
-            key = load_key(self.datastore.get(SERVERKEY_KEY))
-        else:
-            serverkey = requests.get(SERVERKEY_URL, prefetch=True)
-            key = load_key(serverkey.content)
-            self.datastore.set(SERVERKEY_KEY, serverkey.content)
-
         try:
             # Download the "simple" page from PyPI for this package
             simple = requests.get(urlparse.urljoin(SIMPLE_URL, urllib.quote(self.name.encode("utf-8"))), prefetch=True)
