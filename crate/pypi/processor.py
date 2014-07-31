@@ -70,8 +70,9 @@ class PyPIPackage(object):
         with transaction.commit_on_success():
             self.store()
 
-            if download:
-                self.download()
+            # do not download package files
+            #if download:
+            #    self.download()
 
     def delete(self):
         with transaction.commit_on_success():
