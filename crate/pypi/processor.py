@@ -307,6 +307,7 @@ class PyPIPackage(object):
                                     type=f["type"],
                                     filename=f["filename"],
                                     python_version=f["python_version"],
+                                    url=f["file"],
                                     **dict([(k, v) for k, v in f.iteritems() if k not in ["digests", "file", "filename", "type", "python_version"]])
                                 )
 
